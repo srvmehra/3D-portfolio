@@ -80,4 +80,5 @@ export default function InteractiveGuitar({ onZoneClick, activeZone }) {
       })}
     </group>
   )
+  
 }
