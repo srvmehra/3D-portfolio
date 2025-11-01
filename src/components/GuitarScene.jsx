@@ -48,6 +48,7 @@ function GuitarModel({ onSectionClick, activeSection }) {
           />
         </mesh>
       ))}
+      
     </group>
   )
 }
