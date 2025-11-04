@@ -1,9 +1,10 @@
-name: 3D-portfolio
+name: React App CI
 
 on:
   push:
-    branches: [main]
-    pull_request: [main]
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
@@ -13,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: use Node.js
+      - name: Use Node.js 18
         uses: actions/setup-node@v4
         with:
           node-version: 18
@@ -22,7 +23,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-      - run: npm test -- --watchAll=false
+        run: npm test -- --watchAll=false
 
       - name: Build app
         run: npm run build
