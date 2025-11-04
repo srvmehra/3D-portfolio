@@ -1,0 +1,28 @@
+name: My 3D Guitar Portfolio
+
+on:
+  push:
+    branches: [main]
+    pull_request: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+      - run: npm test -- --watchAll=false
+
+      - name: Build app
+        run: npm run build
