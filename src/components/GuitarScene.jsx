@@ -1,13 +1,13 @@
 // src/components/GuitarScene.jsx
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Environment, useGLTF } from '@react-three/drei'
-import { Vector3 } from 'three'
-import { useSpring } from '@react-spring/three'
+import { useSpring, a } from '@react-spring/three'
+import * as THREE from 'three'
 
-function GuitarModel({ onSectionClick, activeSection }) {
+function GuitarModel({ onSectionClick, activeSection, modelRef }) {
   const { scene } = useGLTF('/models/guitar.glb')
-  const ref = useRef()
+  const ref = modelRef || useRef()
   const [hovered, setHovered] = useState(null)
 
   useFrame(() => {
@@ -25,7 +25,7 @@ function GuitarModel({ onSectionClick, activeSection }) {
   ]
 
   return (
-    <group ref={ref} position={[0, -1.5, 0]} scale={[2.5, 2.5, 2.5]} rotation={[0, Math.PI / 6, 0]}>
+  <group ref={ref} position={[0, -1.5, 0]} scale={[2.5, 2.5, 2.5]} rotation={[0, Math.PI / 6, 0]}>
       <primitive object={scene} />
 
       {zones.map((zone) => (
@@ -42,80 +42,101 @@ function GuitarModel({ onSectionClick, activeSection }) {
           <boxGeometry args={zone.size} />
           <meshBasicMaterial
             transparent
-            opacity={hovered === zone.name ? 0.1 : 0}
+            opacity={hovered === zone.name ? 0.15 : 0}
             depthWrite={false}
             color={hovered === zone.name ? '#ff4d6d' : '#ffffff'}
           />
         </mesh>
       ))}
-      
     </group>
   )
 }
 
-function AnimatedCamera({ activeZone }) {
-  const { camera, gl } = useThree()
-  const controlsRef = useRef()
+function SceneLighting({ activeSection }) {
+  const ambient = useRef()
+  const directional = useRef()
 
-  const positions = {
-    default: new Vector3(0, 1.5, 6.5),
-    Body: new Vector3(0, 0.5, 3),
-    Neck: new Vector3(0, 2, 3.5),
-    Head: new Vector3(0, 3.5, 3.8),
-    Strings: new Vector3(0, 1, 2.8),
-  }
+  const { intensity } = useSpring({
+    intensity: activeSection ? 0.4 : 1.2,
+    config: { tension: 90, friction: 18 },
+  })
 
-  const lookAtPoints = {
-    default: new Vector3(0, 0, 0),
-    Body: new Vector3(0, -0.5, 0),
-    Neck: new Vector3(0, 1, 0),
-    Head: new Vector3(0, 2.5, 0),
-    Strings: new Vector3(0, 0.5, 0),
-  }
-
-  // Use a single frame interpolation instead of spring
   useFrame(() => {
-    const targetPos = positions[activeZone || 'default']
-    const targetLook = lookAtPoints[activeZone || 'default']
+    if (ambient.current) ambient.current.intensity = intensity.get()
+    if (directional.current) directional.current.intensity = activeSection ? 1.5 : 2.5
+  })
 
-    // Smooth transition
-    camera.position.lerp(targetPos, 0.05)
-    camera.lookAt(targetLook)
-    camera.updateProjectionMatrix()
+  return (
+    <>
+      <ambientLight ref={ambient} intensity={1.2} />
+      <directionalLight ref={directional} position={[2, 5, 1]} intensity={2.5} />
+    </>
+  )
+}
 
-    // Sync OrbitControls target to camera lookAt
-    if (controlsRef.current) {
-      controlsRef.current.target.lerp(targetLook, 0.05)
-      controlsRef.current.update()
-    }
+function AnimatedCamera({ activeSection, modelRef }) {
+  const { camera } = useThree()
+  const controlsRef = useRef()
+  const [isUserInteracting, setIsUserInteracting] = useState(false)
+
+  const spring = useSpring({
+    zoom: activeSection ? 0.4 : 1,
+    offset: activeSection ? 2.2 : 6,
+    config: { mass: 1, tension: 100, friction: 20 },
+  })
+
+  useFrame(() => {
+    if (!modelRef.current) return
+    if (isUserInteracting) return
+
+    // Guitar’s actual position
+    const target = new THREE.Vector3()
+    modelRef.current.getWorldPosition(target)
+
+    const zoom = spring.zoom.get()
+    const offset = spring.offset.get()
+
+    // Smooth camera transition around target
+    camera.position.lerp(
+      new THREE.Vector3(target.x + 0.5, target.y + offset / 2, offset),
+      0.08
+    )
+
+    // Focus on clicked section
+    if (activeSection === 'neck') target.y += 1.5
+    if (activeSection === 'head') target.y += 3
+    if (activeSection === 'body') target.y -= 0.5
+
+    camera.lookAt(target)
   })
 
   return (
     <OrbitControls
       ref={controlsRef}
-      args={[camera, gl.domElement]}
-      enableZoom={true}
-      enableDamping={true}
-      dampingFactor={0.05}
-      rotateSpeed={0.6}
+      enableZoom
+      enablePan={false}
+      minDistance={2}
       maxDistance={10}
-      minDistance={2.5}
+      onStart={() => setIsUserInteracting(true)}
+      onEnd={() => setIsUserInteracting(false)}
     />
   )
 }
 
+
+
 export default function GuitarScene() {
   const [activeSection, setActiveSection] = useState(null)
+  const modelRef = useRef()
 
   return (
     <div style={{ height: '100vh', width: '100vw', background: '#000' }}>
       <Canvas camera={{ position: [0, 2, 6], fov: 45 }}>
-        <ambientLight intensity={1.2} />
-        <directionalLight position={[2, 5, 1]} intensity={2} />
-
-        <GuitarModel onSectionClick={setActiveSection} activeSection={activeSection} />
-        <AnimatedCamera activeSection={activeSection} setActiveSection={setActiveSection} />
-
+        <SceneLighting activeSection={activeSection} />
+        {/* <GuitarModel onSectionClick={setActiveSection} activeSection={activeSection} /> */}
+        {/* <AnimatedCamera activeSection={activeSection} onReset={() => setActiveSection(null)} /> */}
+        <GuitarModel modelRef={modelRef} onSectionClick={setActiveSection} activeSection={activeSection} />
+        <AnimatedCamera activeSection={activeSection} modelRef={modelRef} />
         <Environment preset="city" />
       </Canvas>
     </div>
