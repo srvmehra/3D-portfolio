@@ -74,11 +74,12 @@ function SceneLighting({ activeSection }) {
   )
 }
 
+//changes this section in order to make it cinamatic
 function AnimatedCamera({ activeSection, modelRef }) {
   const { camera } = useThree()
   const controlsRef = useRef()
   const [isUserInteracting, setIsUserInteracting] = useState(false)
-
+  
   const spring = useSpring({
     zoom: activeSection ? 0.4 : 1,
     offset: activeSection ? 2.2 : 6,
